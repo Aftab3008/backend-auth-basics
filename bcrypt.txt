@@ -1,0 +1,90 @@
+const express=require("express");
+const ejs=require("ejs");
+const mongoose=require("mongoose");
+const bodyParser  = require("body-parser");
+const bcrypt=require("bcrypt");
+
+
+
+
+
+const app=express();
+const port=4400;
+const saltRounds=10;
+app.use(express.static("public"));
+app.use(bodyParser.urlencoded({extended:true}));
+app.set("view engine","ejs")
+
+
+
+mongoose.connect("mongodb://127.0.0.1:27017/userDB",{useNewUrlParser:true});
+const UserSchema= new mongoose.Schema({
+    email:String,
+    password:String
+});
+
+
+const user= new mongoose.model("user",UserSchema);
+
+
+
+app.get("/",(req,res)=>{
+    res.render("home.ejs");
+});
+app.get("/login",(req,res)=>{
+    res.render("login.ejs");
+});
+app.get("/register",(req,res)=>{
+    res.render("register.ejs");
+});
+
+
+app.post("/register",async (req,res)=>{
+    bcrypt.hash(req.body.password, saltRounds, async function(err, pass) {
+        const newUser=new user({
+            email: req.body.username,
+            password:pass
+        });
+        try {
+            await newUser.save();
+            res.render("secrets.ejs");
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error registering user.");
+        }
+    });
+
+});
+app.post("/login",async (req,res)=>{
+    const usercheck=req.body.username;
+    const passcheck=req.body.password;
+    try {
+        const foundUser = await user.findOne({ email: usercheck });
+
+        if (!foundUser) {
+            console.log("No user found");
+            return res.redirect("/"); // You can create an error page for this case
+        }
+        bcrypt.compare(passcheck, foundUser.password, function(err, result) {
+            if (result ===true) {
+                 res.render("secrets.ejs");
+            } else {
+                console.log("Wrong Password");
+                res.redirect("/login"); 
+            }
+        });
+       
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Error logging in.");
+    }
+});
+
+
+
+
+
+
+app.listen(port,()=>{
+    console.log("Running at port "+port);
+});
